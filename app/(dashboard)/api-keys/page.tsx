@@ -319,6 +319,8 @@ export default function ApiKeysPage() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
+                      aria-label="발급된 API key 패널 닫기"
+                      title="발급된 API key 패널 닫기"
                       onClick={() => {
                         setIssuedKey(null);
                         setCopied(false);
