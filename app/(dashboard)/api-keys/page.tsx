@@ -466,9 +466,6 @@ export default function ApiKeysPage() {
                               <span className="font-bold text-zinc-800 dark:text-zinc-200">
                                 {apiKey.name}
                               </span>
-                              <span className="font-mono text-[10px] text-zinc-400">
-                                {apiKey.id}
-                              </span>
                             </div>
                           )}
                         </TableCell>
