@@ -108,6 +108,13 @@ export default function DocumentDetailPage() {
         </p>
       </div>
 
+      {errorMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <p className="font-medium">{errorMessage}</p>
+        </div>
+      )}
+
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="xs" render={<a href={getDownloadUrl(doc.id, "markdown")} />} className="h-8 px-4 font-bold border-zinc-200 gap-2">
           <Download className="h-3.5 w-3.5" />

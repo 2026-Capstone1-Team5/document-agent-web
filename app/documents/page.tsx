@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DocumentSummary, listDocuments } from "@/lib/document-agent-api";
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Plus, ExternalLink, Loader2, AlertCircle, Search } from "lucide-react"
+import { Plus, ExternalLink, Loader2, AlertCircle, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -93,6 +93,13 @@ export default function DocumentListPage() {
           </div>
           <Badge variant="outline" className="text-[10px] font-normal text-zinc-400 border-zinc-200">총 {documents.length}건</Badge>
         </div>
+
+        {errorMessage && (
+          <div className="mx-10 mt-6 flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <p className="font-medium">{errorMessage}</p>
+          </div>
+        )}
         
         <Table>
           <TableHeader>

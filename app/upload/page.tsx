@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadDocument } from "@/lib/document-agent-api";
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, Loader2, AlertCircle, CheckCircle2, Sparkles } from "lucide-react"
 import { Input } from "@/components/ui/input"
