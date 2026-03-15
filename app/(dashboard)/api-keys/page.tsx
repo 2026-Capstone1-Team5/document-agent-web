@@ -185,7 +185,7 @@ export default function ApiKeysPage() {
   };
 
   const handleRevoke = async (apiKey: ApiKeySummary) => {
-    if (!window.confirm(`"${apiKey.name}" API key를 폐기할까요?`)) {
+    if (!window.confirm(`"${apiKey.name}" API key를 삭제할까요?`)) {
       return;
     }
 
@@ -203,7 +203,7 @@ export default function ApiKeysPage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("API key를 폐기하지 못했습니다.");
+        setErrorMessage("API key를 삭제하지 못했습니다.");
       }
     } finally {
       setBusyKeyId(null);
@@ -342,37 +342,23 @@ export default function ApiKeysPage() {
           <CardHeader className="border-b border-zinc-100 bg-zinc-50/30 px-8 py-5 dark:border-zinc-800 dark:bg-zinc-900/30">
             <CardTitle className="text-lg font-bold">MCP 연결 가이드</CardTitle>
             <CardDescription className="text-xs">
-              API key는 문서 endpoint에서만 허용됩니다. `/auth/me`와 `/auth/api-keys`
-              관리는 현재 로그인 세션(JWT)으로만 접근합니다.
+              실제 MCP 연동 가이드는 백엔드/클라이언트 사양이 정리된 뒤 제공할 예정입니다.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 px-8 py-6 text-sm">
-            <div className="space-y-2">
-              <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                Header 방식
+          <CardContent className="px-8 py-6">
+            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 px-5 py-6 dark:border-zinc-800 dark:bg-zinc-900/40">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-zinc-200 bg-white text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+                  Coming Soon
+                </Badge>
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                  MCP 연결 가이드는 준비 중입니다.
+                </p>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-500">
+                현재 이 화면에서는 API key 발급과 관리만 지원합니다. MCP 클라이언트별
+                설정 예시와 연결 절차는 실제 연동 사양이 확정된 뒤 별도로 안내할 예정입니다.
               </p>
-              <pre className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12px] leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-{`X-API-Key: <issued-api-key>`}
-              </pre>
-            </div>
-
-            <div className="space-y-2">
-              <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                Bearer 방식
-              </p>
-              <pre className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12px] leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-{`Authorization: Bearer <issued-api-key>`}
-              </pre>
-            </div>
-
-            <div className="space-y-2">
-              <p className="font-semibold text-zinc-800 dark:text-zinc-200">
-                예시 요청
-              </p>
-              <pre className="overflow-x-auto rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[12px] leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-{`curl https://your-document-agent-api.example.com/api/v1/documents \\
-  -H 'X-API-Key: <issued-api-key>'`}
-              </pre>
             </div>
           </CardContent>
         </Card>
@@ -504,7 +490,7 @@ export default function ApiKeysPage() {
                                 ) : (
                                   <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                                 )}
-                                폐기
+                                삭제
                               </Button>
                             </div>
                           ) : null}
