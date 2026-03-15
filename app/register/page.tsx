@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation"
 
 import { LoginAsciiPanel } from "@/components/login-ascii-panel"
-import { LoginForm } from "@/components/login-form"
+import { RegisterForm } from "@/components/register-form"
 import { getSession } from "@/lib/auth"
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const session = await getSession()
 
   if (session) {
@@ -20,7 +20,7 @@ export default async function LoginPage() {
 
         <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-6 py-16">
           <div className="relative w-full max-w-xl">
-            <LoginForm />
+            <RegisterForm />
           </div>
         </section>
       </div>

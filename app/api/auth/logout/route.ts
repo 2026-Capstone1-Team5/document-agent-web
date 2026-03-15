@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 
-import { clearSession } from "@/lib/auth"
+import { clearAccessToken } from "@/lib/document-agent-backend"
 
 export async function POST() {
-  await clearSession()
+  await clearAccessToken()
   return NextResponse.json({ ok: true })
 }

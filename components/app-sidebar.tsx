@@ -54,7 +54,7 @@ const subItems = [
 
 type AppSidebarProps = {
   session: {
-    username: string
+    email: string
     displayName: string
     initials: string
   }
@@ -160,7 +160,7 @@ export function AppSidebar({ session }: AppSidebarProps) {
               {session.displayName}
             </span>
             <span className="truncate text-[10px] text-zinc-500">
-              @{session.username}
+              {session.email}
             </span>
           </div>
           <div className="group-data-[collapsible=icon]:hidden">

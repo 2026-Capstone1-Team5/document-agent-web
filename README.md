@@ -13,12 +13,16 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Login
+## Backend API
 
-The dashboard is protected by a simple credential login.
+This app authenticates against `document-agent-api` and proxies document requests
+through Next.js route handlers.
 
-- In development, if no auth env vars are set, use `demo` / `demo1234`
-- In deployment, set `DOCMATE_AUTH_USERNAME`, `DOCMATE_AUTH_PASSWORD`, and `DOCMATE_AUTH_SECRET`
+Set the backend origin in your environment:
+
+```bash
+DOCUMENT_AGENT_API_BASE_URL=http://127.0.0.1:8000
+```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

@@ -7,13 +7,13 @@ import {
   setAccessToken,
 } from "@/lib/document-agent-backend"
 
-type LoginBody = {
+type RegisterBody = {
   email?: string
   password?: string
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as LoginBody | null
+  const body = (await request.json().catch(() => null)) as RegisterBody | null
 
   const email = body?.email
   const password = body?.password
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetchDocumentAgentApi("/auth/login", {
+    const response = await fetchDocumentAgentApi("/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const error = await parseBackendApiError(
         response,
-        "로그인 요청을 처리하지 못했습니다.",
+        "회원가입 요청을 처리하지 못했습니다.",
       )
       return NextResponse.json(
         {
@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       {
         user: payload.user,
       },
+      { status: 201 },
     )
   } catch {
     return NextResponse.json(
