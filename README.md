@@ -13,6 +13,13 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Login
+
+The dashboard is protected by a simple credential login.
+
+- In development, if no auth env vars are set, use `demo` / `demo1234`
+- In deployment, set `DOCMATE_AUTH_USERNAME`, `DOCMATE_AUTH_PASSWORD`, and `DOCMATE_AUTH_SECRET`
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
