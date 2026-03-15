@@ -54,31 +54,37 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar className="border-r border-zinc-200 dark:border-zinc-800">
+    <Sidebar collapsible="icon" className="border-r border-zinc-200 dark:border-zinc-800">
       <SidebarHeader className="px-2 py-4">
-        <div className="flex items-center gap-3 px-4 py-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
-            <span className="text-xl font-bold">D</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold">DocMate</span>
-            <span className="text-xs text-zinc-500">document-agent-web</span>
-          </div>
+        <div className="px-2">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800">
+              <span className="text-xl font-bold">D</span>
+            </div>
+            <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+              <span className="text-sm font-bold">DocMate</span>
+              <span className="truncate text-xs text-zinc-500">document-agent-web</span>
+            </div>
+          </Link>
         </div>
-        <div className="px-2 mt-4">
+        <div className="mt-4 px-2 group-data-[collapsible=icon]:px-0">
           <SidebarMenuButton 
             render={<Link href="/upload" />} 
+            tooltip="New Upload"
             className={cn(
-              "w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-lg flex items-center justify-center gap-2 shadow-sm",
+              "h-10 w-full justify-center rounded-lg bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-0!",
               pathname === "/upload" && "shadow-lg ring-2 ring-primary/20"
             )}
           >
             <Plus className="h-4 w-4" />
-            <span className="font-semibold text-sm">New Upload</span>
+            <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">New Upload</span>
           </SidebarMenuButton>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 group-data-[collapsible=icon]:px-1.5">
         <SidebarGroup>
           <SidebarMenu>
             {items.map((item) => {
@@ -89,14 +95,14 @@ export function AppSidebar() {
                     render={<Link href={item.url} />} 
                     tooltip={item.title}
                     className={cn(
-                      "h-10 px-4 rounded-lg transition-all",
+                      "h-10 rounded-lg px-4 transition-all group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!",
                       isActive 
                         ? "bg-white dark:bg-zinc-800 shadow-md text-primary font-bold border border-zinc-100 dark:border-zinc-700" 
                         : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     )}
                   >
                     <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-zinc-400")} />
-                    <span>{item.title}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )
@@ -110,12 +116,12 @@ export function AppSidebar() {
                 <SidebarMenuButton 
                   render={<Link href={item.url} />} 
                   tooltip={item.title}
-                  className="h-10 px-4 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="h-10 rounded-lg px-4 text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
                 >
                   <item.icon className="h-4 w-4 text-zinc-400" />
-                  <span className="flex-1">{item.title}</span>
+                  <span className="flex-1 group-data-[collapsible=icon]:hidden">{item.title}</span>
                   {item.badge && (
-                    <Badge variant="outline" className="text-[10px] h-4 px-1 leading-none bg-zinc-50 text-zinc-500 border-zinc-200">
+                    <Badge variant="outline" className="h-4 border-zinc-200 bg-zinc-50 px-1 text-[10px] leading-none text-zinc-500 group-data-[collapsible=icon]:hidden">
                       {item.badge}
                     </Badge>
                   )}
@@ -125,13 +131,13 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <SidebarFooter className="p-4 group-data-[collapsible=icon]:p-2">
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <Avatar className="h-9 w-9 border border-zinc-200">
             <AvatarImage src="" />
             <AvatarFallback className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">N</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col overflow-hidden">
+          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold truncate">Guest User</span>
             <span className="text-[10px] text-zinc-500 truncate">로그인 기능 연결 예정</span>
           </div>
