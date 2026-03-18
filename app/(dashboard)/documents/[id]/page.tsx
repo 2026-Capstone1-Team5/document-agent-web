@@ -8,6 +8,7 @@ import {
   DocumentSummary,
   getDocumentResult,
   getDownloadUrl,
+  getSourceUrl,
   ParseResult,
 } from "@/lib/document-agent-api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -25,6 +26,8 @@ export default function DocumentDetailPage() {
   const [result, setResult] = useState<ParseResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const previewUrl = doc ? getSourceUrl(doc.id) : null;
 
   useEffect(() => {
     const fetchDocDetail = async () => {
@@ -95,8 +98,12 @@ export default function DocumentDetailPage() {
             목록으로 돌아가기
           </Button>
           <div className="flex gap-2">
-            <Badge variant="outline" className="text-[10px] font-bold text-zinc-400 border-zinc-200 bg-white dark:bg-zinc-900 h-5">PDF</Badge>
-            <Badge variant="outline" className="text-[10px] font-bold text-zinc-400 border-zinc-200 bg-white dark:bg-zinc-900 h-5">Preview Pending</Badge>
+            <Badge variant="outline" className="text-[10px] font-bold text-zinc-400 border-zinc-200 bg-white dark:bg-zinc-900 h-5 uppercase">
+              {doc.contentType.split("/")[1] || "FILE"}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 border-emerald-100 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/30 h-5">
+              Source Loaded
+            </Badge>
           </div>
         </div>
       </div>
@@ -140,7 +147,14 @@ export default function DocumentDetailPage() {
               <p className="text-zinc-400 text-xs text-balance">원문 파일 또는 preview endpoint가 연결되면 이 영역에서 직접 내용을 검수합니다.</p>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col items-center justify-center bg-zinc-50/20 dark:bg-zinc-900/20 relative">
+          <CardContent className="flex-1 p-0 bg-zinc-50/20 dark:bg-zinc-900/20 relative overflow-hidden">
+            {previewUrl ? (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-none"
+                title="Document Preview"
+              />
+            ) : (
              <div className="absolute inset-8 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-center p-8 space-y-4">
                 <div className="h-16 w-16 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-zinc-50 dark:border-zinc-700">
                   <EyeOff className="h-8 w-8 text-zinc-200" />
@@ -148,10 +162,11 @@ export default function DocumentDetailPage() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold">PDF 미리보기 패널</h3>
                   <p className="text-xs text-zinc-400 max-w-xs mx-auto leading-relaxed">
-                    현재 API 응답에는 원문을 직접 임베드할 preview URL이 포함되어 있지 않습니다. backend가 sourceUrl 또는 preview endpoint를 제공하면 이 패널에 바로 연결됩니다.
+                    문서를 불러올 수 없습니다. API 연결 상태를 확인해 주세요.
                   </p>
                 </div>
              </div>
+            )}
           </CardContent>
         </Card>
 
