@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,26 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+type PreviewStatus = "idle" | "loading" | "loaded" | "error";
+
+function parsePreviewErrorMessage(rawText: string): string {
+  try {
+    const parsed = JSON.parse(rawText) as {
+      error?: {
+        message?: string;
+      };
+    };
+    const message = parsed.error?.message?.trim();
+    if (message) {
+      return message;
+    }
+  } catch {
+    // Fall through to the generic preview error message.
+  }
+
+  return "문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.";
+}
+
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
   const documentId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -26,6 +46,9 @@ export default function DocumentDetailPage() {
   const [result, setResult] = useState<ParseResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   const previewUrl = doc ? getSourceUrl(doc.id) : null;
 
@@ -56,6 +79,17 @@ export default function DocumentDetailPage() {
     fetchDocDetail();
   }, [documentId]);
 
+  useEffect(() => {
+    if (!previewUrl) {
+      setPreviewStatus("idle");
+      setPreviewMessage(null);
+      return;
+    }
+
+    setPreviewStatus("loading");
+    setPreviewMessage(null);
+  }, [previewUrl]);
+
   const handleDelete = async () => {
     if (!documentId) return;
     if (!confirm("Are you sure you want to delete this document?")) return;
@@ -72,6 +106,41 @@ export default function DocumentDetailPage() {
       }
     }
   };
+
+  const handlePreviewLoad = () => {
+    const iframeDocument = previewFrameRef.current?.contentDocument;
+    const iframeContentType = iframeDocument?.contentType?.toLowerCase() ?? "";
+    const iframeBodyText = iframeDocument?.body?.innerText?.trim() ?? "";
+
+    if (
+      (iframeContentType.includes("application/json") || iframeContentType.includes("text/plain")) &&
+      iframeBodyText
+    ) {
+      setPreviewMessage(parsePreviewErrorMessage(iframeBodyText));
+      setPreviewStatus("error");
+      return;
+    }
+
+    setPreviewStatus("loaded");
+  };
+
+  const handlePreviewError = () => {
+    setPreviewMessage("문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.");
+    setPreviewStatus("error");
+  };
+
+  const previewStatusLabel =
+    previewStatus === "loaded"
+      ? "Source Loaded"
+      : previewStatus === "loading"
+        ? "Source Loading"
+        : "Source Unavailable";
+  const previewStatusClassName =
+    previewStatus === "loaded"
+      ? "text-[10px] font-bold text-emerald-600 border-emerald-100 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/30 h-5"
+      : previewStatus === "loading"
+        ? "text-[10px] font-bold text-amber-700 border-amber-100 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/30 h-5"
+        : "text-[10px] font-bold text-red-600 border-red-100 bg-red-50 dark:bg-red-950/30 dark:border-red-900/30 h-5";
 
   if (loading) {
     return (
@@ -101,8 +170,8 @@ export default function DocumentDetailPage() {
             <Badge variant="outline" className="text-[10px] font-bold text-zinc-400 border-zinc-200 bg-white dark:bg-zinc-900 h-5 uppercase">
               {doc.contentType.split("/")[1] || "FILE"}
             </Badge>
-            <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 border-emerald-100 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/30 h-5">
-              Source Loaded
+            <Badge variant="outline" className={previewStatusClassName}>
+              {previewStatusLabel}
             </Badge>
           </div>
         </div>
@@ -144,25 +213,42 @@ export default function DocumentDetailPage() {
             <div className="space-y-1">
               <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 px-2 py-0 text-[10px]">Original Preview</Badge>
               <h2 className="text-lg font-bold">원문 미리보기 패널</h2>
-              <p className="text-zinc-400 text-xs text-balance">원문 파일 또는 preview endpoint가 연결되면 이 영역에서 직접 내용을 검수합니다.</p>
+              <p className="text-zinc-400 text-xs text-balance">원문 파일이 정상적으로 로드되면 이 영역에서 직접 내용을 검수합니다.</p>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 bg-zinc-50/20 dark:bg-zinc-900/20 relative overflow-hidden">
-            {previewUrl ? (
-              <iframe
-                src={previewUrl}
-                className="w-full h-full border-none"
-                title="Document Preview"
-              />
+            {previewUrl && previewStatus !== "error" ? (
+              <>
+                <iframe
+                  ref={previewFrameRef}
+                  src={previewUrl}
+                  className="w-full h-full border-none"
+                  title="Document Preview"
+                  onLoad={handlePreviewLoad}
+                  onError={handlePreviewError}
+                />
+                {previewStatus === "loading" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 dark:bg-zinc-950/80">
+                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <p className="text-xs font-medium text-zinc-500">원문 미리보기를 불러오는 중입니다.</p>
+                  </div>
+                )}
+              </>
             ) : (
              <div className="absolute inset-8 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-center p-8 space-y-4">
                 <div className="h-16 w-16 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-zinc-50 dark:border-zinc-700">
-                  <EyeOff className="h-8 w-8 text-zinc-200" />
+                  {previewStatus === "error" ? (
+                    <AlertCircle className="h-8 w-8 text-red-300" />
+                  ) : (
+                    <EyeOff className="h-8 w-8 text-zinc-200" />
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold">PDF 미리보기 패널</h3>
+                  <h3 className="text-xl font-bold">
+                    {previewStatus === "error" ? "원문 미리보기를 불러오지 못했습니다" : "PDF 미리보기 패널"}
+                  </h3>
                   <p className="text-xs text-zinc-400 max-w-xs mx-auto leading-relaxed">
-                    문서를 불러올 수 없습니다. API 연결 상태를 확인해 주세요.
+                    {previewMessage ?? "문서를 불러올 수 없습니다. API 연결 상태를 확인해 주세요."}
                   </p>
                 </div>
              </div>
