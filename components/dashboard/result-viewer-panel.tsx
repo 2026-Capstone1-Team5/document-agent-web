@@ -20,6 +20,8 @@ type ResultViewerPanelProps = {
   onResultViewChange: (next: ResultView) => void;
   downloadUrl?: string;
   downloadFileName?: string;
+  emptyMarkdownMessage?: ReactNode;
+  emptyJsonMessage?: string;
 } & (
   | {
       state: "ready";
@@ -30,8 +32,6 @@ type ResultViewerPanelProps = {
       state: "empty";
       markdownContent?: never;
       jsonContent?: never;
-      emptyMarkdownMessage?: ReactNode;
-      emptyJsonMessage?: string;
     }
 );
 
