@@ -52,7 +52,6 @@ export default function UploadPage() {
       }
 
       setErrorMessage("업로드는 완료되었지만 파싱이 아직 진행 중입니다. 문서 목록에서 잠시 후 다시 확인해 주세요.");
-      router.push("/documents");
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
