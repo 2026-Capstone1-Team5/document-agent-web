@@ -393,32 +393,30 @@ export default function DocumentDetailPage() {
           </select>
         </div>
 
-        <ScrollArea className="flex-1">
-          {resultView === "markdown" ? (
-            <div className="min-h-full space-y-8 px-6 py-6">
-              <section className="space-y-3 border-b border-zinc-100 pb-6">
-                <h1 className="text-[2rem] font-semibold tracking-tight text-zinc-900">
-                  문서 결과 미리보기
-                </h1>
-                <p className="max-w-2xl text-sm leading-7 text-zinc-500">
-                  좌측 원문과 우측 Markdown 결과를 같은 화면에서 비교 검수할 수 있도록 구성했습니다.
-                </p>
-              </section>
-
-              <section className="space-y-3 border-b border-zinc-100 pb-6">
-                <pre className="whitespace-pre-wrap text-xs leading-loose font-mono text-zinc-800">
-                  {result.markdown}
-                </pre>
-              </section>
+        <div className="flex-1 min-h-0 p-4">
+          <div className="flex h-full min-h-0 flex-col rounded-xl border border-zinc-200 bg-white">
+            <div className="border-b border-zinc-100 px-4 py-3">
+              <p className="text-xs font-semibold text-zinc-500">
+                Result Preview
+              </p>
             </div>
-          ) : (
-            <div className="min-h-full px-6 py-6">
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-7 text-zinc-600">
-                {JSON.stringify(result.canonicalJson, null, 2)}
-              </pre>
-            </div>
-          )}
-        </ScrollArea>
+            <ScrollArea className="min-h-0 flex-1">
+              {resultView === "markdown" ? (
+                <div className="min-h-full px-5 py-5">
+                  <pre className="whitespace-pre-wrap text-xs leading-loose font-mono text-zinc-800">
+                    {result.markdown}
+                  </pre>
+                </div>
+              ) : (
+                <div className="min-h-full px-5 py-5">
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-7 text-zinc-600">
+                    {JSON.stringify(result.canonicalJson, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
       </section>
     </div>
   );
