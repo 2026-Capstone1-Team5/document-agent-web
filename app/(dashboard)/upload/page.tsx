@@ -31,6 +31,7 @@ export default function UploadPage() {
 
     setUploading(true);
     setErrorMessage(null);
+    let navigatingToDocument = false;
 
     try {
       const queued = await uploadDocument(file);
@@ -44,6 +45,7 @@ export default function UploadPage() {
         }
 
         if (current.job.documentId) {
+          navigatingToDocument = true;
           router.push(`/documents/${current.job.documentId}`);
           return;
         }
@@ -60,7 +62,9 @@ export default function UploadPage() {
         setErrorMessage("An error occurred during upload.");
       }
     } finally {
-      setUploading(false);
+      if (!navigatingToDocument) {
+        setUploading(false);
+      }
     }
   };
 
