@@ -2,6 +2,16 @@
 
 import { ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 type ResultView = "markdown" | "json";
 
@@ -44,15 +54,33 @@ export function ResultViewerPanel({
           <p className="text-sm font-semibold text-zinc-900">Parsed Output</p>
         </div>
 
-        <select
-          value={resultView}
-          onChange={(e) => onResultViewChange(e.target.value as ResultView)}
-          className="h-9 min-w-[140px] rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 outline-none ring-0 transition focus:border-zinc-300"
-          aria-label="Result format"
-        >
-          <option value="markdown">Markdown</option>
-          <option value="json">JSON</option>
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                className="h-9 min-w-[140px] justify-between border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700"
+                aria-label="Result format"
+              >
+                {resultView === "markdown" ? "Markdown" : "JSON"}
+                <ChevronDown data-icon="inline-end" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuRadioGroup
+                value={resultView}
+                onValueChange={(value) => onResultViewChange(value as ResultView)}
+              >
+                <DropdownMenuRadioItem value="markdown">
+                  Markdown
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="json">JSON</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex-1 min-h-0 p-4">
