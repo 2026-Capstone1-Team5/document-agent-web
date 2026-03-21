@@ -1,8 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { Document, Page, pdfjs } from "react-pdf";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   deleteDocument,
   DocumentSummary,
@@ -11,14 +28,12 @@ import {
   getSourceUrl,
   ParseResult,
 } from "@/lib/document-agent-api";
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, Trash2, Download, FileJson, FileText, Loader2, AlertCircle, EyeOff } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+
+const PDF_VIEWPORT_WIDTH = 728;
 
 type PreviewStatus = "idle" | "loading" | "loaded" | "error";
+
+pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 function parsePreviewErrorMessage(rawText: string): string {
   try {
@@ -32,9 +47,8 @@ function parsePreviewErrorMessage(rawText: string): string {
       return message;
     }
   } catch {
-    // Fall through to the generic preview error message.
+    // fall through
   }
-
   return "문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.";
 }
 
@@ -42,15 +56,23 @@ export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
   const documentId = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
+
   const [doc, setDoc] = useState<DocumentSummary | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [resultView, setResultView] = useState<"markdown" | "json">("markdown");
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [pdfNumPages, setPdfNumPages] = useState(0);
+  const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   const previewUrl = doc ? getSourceUrl(doc.id) : null;
+  const isPdfPreview = Boolean(
+    doc && (doc.contentType.toLowerCase().includes("pdf") || doc.filename.toLowerCase().endsWith(".pdf")),
+  );
 
   useEffect(() => {
     const fetchDocDetail = async () => {
@@ -76,7 +98,7 @@ export default function DocumentDetailPage() {
         setLoading(false);
       }
     };
-    fetchDocDetail();
+    void fetchDocDetail();
   }, [documentId]);
 
   useEffect(() => {
@@ -85,14 +107,18 @@ export default function DocumentDetailPage() {
       setPreviewMessage(null);
       return;
     }
-
+    if (isPdfPreview) {
+      setPreviewStatus("idle");
+      setPreviewMessage(null);
+      return;
+    }
     setPreviewStatus("loading");
     setPreviewMessage(null);
-  }, [previewUrl]);
+  }, [isPdfPreview, previewUrl]);
 
   const handleDelete = async () => {
     if (!documentId) return;
-    if (!confirm("Are you sure you want to delete this document?")) return;
+    if (!confirm("이 문서를 삭제하시겠습니까?")) return;
 
     try {
       await deleteDocument(documentId);
@@ -102,7 +128,7 @@ export default function DocumentDetailPage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("An error occurred during deletion.");
+        setErrorMessage("삭제 중 오류가 발생했습니다.");
       }
     }
   };
@@ -129,19 +155,6 @@ export default function DocumentDetailPage() {
     setPreviewStatus("error");
   };
 
-  const previewStatusLabel =
-    previewStatus === "loaded"
-      ? "Source Loaded"
-      : previewStatus === "loading"
-        ? "Source Loading"
-        : "Source Unavailable";
-  const previewStatusClassName =
-    previewStatus === "loaded"
-      ? "text-[10px] font-bold text-emerald-600 border-emerald-100 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/30 h-5"
-      : previewStatus === "loading"
-        ? "text-[10px] font-bold text-amber-700 border-amber-100 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/30 h-5"
-        : "text-[10px] font-bold text-red-600 border-red-100 bg-red-50 dark:bg-red-950/30 dark:border-red-900/30 h-5";
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -151,159 +164,262 @@ export default function DocumentDetailPage() {
     );
   }
 
-  if (!doc || !result) return (
-    <div className="text-center py-20">
-      <p>Document not found.</p>
-      <Button variant="link" render={<Link href="/documents" />}>Return to Library</Button>
-    </div>
-  );
+  if (!doc || !result) {
+    return (
+      <div className="text-center py-20">
+        <p>Document not found.</p>
+        <Button variant="link" render={<Link href="/documents" />}>
+          Return to Library
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-full space-y-6 pb-10">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="xs" render={<Link href="/documents" />} className="text-xs font-bold text-zinc-500 hover:text-zinc-800">
-            <ArrowLeft className="mr-2 h-3.5 w-3.5" />
-            목록으로 돌아가기
-          </Button>
-          <div className="flex gap-2">
-            <Badge variant="outline" className="text-[10px] font-bold text-zinc-400 border-zinc-200 bg-white dark:bg-zinc-900 h-5 uppercase">
-              {doc.contentType.split("/")[1] || "FILE"}
-            </Badge>
-            <Badge variant="outline" className={previewStatusClassName}>
-              {previewStatusLabel}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{doc.filename}</h1>
-        <p className="text-zinc-400 text-xs">
-          {new Date(doc.createdAt).toLocaleString()} 업로드
-        </p>
-      </div>
-
-      {errorMessage && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <p className="font-medium">{errorMessage}</p>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="xs" render={<a href={getDownloadUrl(doc.id, "markdown")} />} className="h-8 px-4 font-bold border-zinc-200 gap-2">
-          <Download className="h-3.5 w-3.5" />
-          Markdown 다운로드
-        </Button>
-        <Button variant="outline" size="xs" render={<a href={getDownloadUrl(doc.id, "json")} />} className="h-8 px-4 font-bold border-zinc-200 gap-2">
-          <Download className="h-3.5 w-3.5" />
-          JSON 다운로드
-        </Button>
-        <Button variant="destructive" size="xs" onClick={handleDelete} className="h-8 px-4 font-bold gap-2 bg-red-800 hover:bg-red-900">
-          <Trash2 className="h-3.5 w-3.5" />
-          삭제
-        </Button>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-280px)] min-h-[600px]">
-        {/* Left Panel: Original Preview */}
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-100 dark:border-zinc-800 flex flex-col overflow-hidden">
-          <CardHeader className="p-6 border-b border-zinc-50 dark:border-zinc-900 bg-zinc-50/30 dark:bg-zinc-900/30">
-            <div className="space-y-1">
-              <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 px-2 py-0 text-[10px]">Original Preview</Badge>
-              <h2 className="text-lg font-bold">원문 미리보기 패널</h2>
-              <p className="text-zinc-400 text-xs text-balance">원문 파일이 정상적으로 로드되면 이 영역에서 직접 내용을 검수합니다.</p>
+    <div className="-m-6 flex h-[calc(100svh-4rem)] min-h-[720px] flex-col overflow-hidden border-y border-zinc-200 bg-white lg:flex-row">
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col border-b border-zinc-200 lg:border-b-0 lg:border-r">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-y border-zinc-200 bg-white">
+          <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Button
+                variant="ghost"
+                size="xs"
+                render={<Link href="/documents" />}
+                className="h-8 px-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                목록
+              </Button>
+              <span className="max-w-[160px] truncate text-xs font-medium text-zinc-600">
+                {doc.filename}
+              </span>
             </div>
-          </CardHeader>
-          <CardContent className="flex-1 p-0 bg-zinc-50/20 dark:bg-zinc-900/20 relative overflow-hidden">
-            {previewUrl && previewStatus !== "error" ? (
-              <>
-                <iframe
-                  ref={previewFrameRef}
-                  src={previewUrl}
-                  className="w-full h-full border-none"
-                  title="Document Preview"
-                  onLoad={handlePreviewLoad}
-                  onError={handlePreviewError}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={!isPdfPreview || pdfPageNumber <= 1}
+                onClick={() => setPdfPageNumber((prev) => Math.max(1, prev - 1))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, pdfNumPages)}
+                  value={pdfPageNumber}
+                  disabled={!isPdfPreview}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    if (!Number.isFinite(next)) {
+                      return;
+                    }
+                    const clamped = Math.min(Math.max(1, next), Math.max(1, pdfNumPages));
+                    setPdfPageNumber(clamped);
+                  }}
+                  className="h-8 w-12 border-zinc-200 px-2 text-center text-sm"
                 />
-                {previewStatus === "loading" && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 dark:bg-zinc-950/80">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
-                    <p className="text-xs font-medium text-zinc-500">원문 미리보기를 불러오는 중입니다.</p>
-                  </div>
-                )}
-              </>
-            ) : (
-             <div className="absolute inset-8 border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-center p-8 space-y-4">
-                <div className="h-16 w-16 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-zinc-50 dark:border-zinc-700">
-                  {previewStatus === "error" ? (
-                    <AlertCircle className="h-8 w-8 text-red-300" />
-                  ) : (
-                    <EyeOff className="h-8 w-8 text-zinc-200" />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold">
-                    {previewStatus === "error" ? "원문 미리보기를 불러오지 못했습니다" : "PDF 미리보기 패널"}
-                  </h3>
-                  <p className="text-xs text-zinc-400 max-w-xs mx-auto leading-relaxed">
-                    {previewMessage ?? "문서를 불러올 수 없습니다. API 연결 상태를 확인해 주세요."}
-                  </p>
-                </div>
-             </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Right Panel: Structured Outputs */}
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-100 dark:border-zinc-800 flex flex-col overflow-hidden">
-          <CardHeader className="p-6 border-b border-zinc-50 dark:border-zinc-900 bg-zinc-50/30 dark:bg-zinc-900/30">
-            <div className="flex items-end justify-between">
-              <div className="space-y-1">
-                <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 px-2 py-0 text-[10px]">Structured Outputs</Badge>
-                <h2 className="text-lg font-bold">Markdown / JSON 결과</h2>
-                <p className="text-zinc-400 text-xs">두 결과를 같은 수준의 산출물로 보고, 탭 전환으로 빠르게 확인합니다.</p>
+                <span className="text-sm text-zinc-500">of</span>
+                <span className="text-sm text-zinc-500">{pdfNumPages || "?"}</span>
               </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-[10px] text-zinc-300 font-medium">{new Date(doc.createdAt).toLocaleString()}</span>
+
+              <button
+                type="button"
+                disabled={!isPdfPreview || !pdfNumPages || pdfPageNumber >= pdfNumPages}
+                onClick={() => setPdfPageNumber((prev) => Math.min(pdfNumPages, prev + 1))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              <div className="mx-1 h-5 w-px bg-zinc-200" />
+
+              <button
+                type="button"
+                aria-label="Zoom Out"
+                onClick={() => setZoomPercent((prev) => Math.max(60, prev - 10))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-14 text-center text-sm text-zinc-600">{zoomPercent}%</span>
+              <button
+                type="button"
+                aria-label="Zoom In"
+                onClick={() => setZoomPercent((prev) => Math.min(200, prev + 10))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Reset Zoom"
+                onClick={() => setZoomPercent(100)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+
+              <div className="mx-1 h-5 w-px bg-zinc-200" />
+
+              <a
+                href={getSourceUrl(doc.id, "attachment")}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                aria-label="Download PDF"
+                download={doc.filename}
+              >
+                <Download className="h-4 w-4" />
+              </a>
+              <a
+                href={getDownloadUrl(doc.id, "markdown")}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                aria-label="Download markdown"
+              >
+                <FileText className="h-4 w-4" />
+              </a>
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50"
+                aria-label="Delete document"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative min-h-0 flex-1 overflow-auto bg-[#f3f3f3]" tabIndex={0}>
+            {isPdfPreview ? (
+              <div className="flex min-h-full justify-center p-4">
+                <Document
+                  file={previewUrl}
+                  loading={
+                    <div className="flex h-[720px] w-[728px] items-center justify-center border border-zinc-300 bg-white">
+                      <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                    </div>
+                  }
+                  onLoadSuccess={({ numPages }) => {
+                    setPdfNumPages(numPages);
+                    setPdfPageNumber((prev) => Math.min(Math.max(prev, 1), numPages));
+                  }}
+                  onLoadError={(error) => {
+                    console.error(error);
+                    setPreviewMessage("PDF 미리보기를 불러오지 못했습니다.");
+                    setPreviewStatus("error");
+                  }}
+                >
+                  <div
+                    className="inline-block origin-top"
+                    style={{ transform: `scale(${zoomPercent / 100})` }}
+                  >
+                    <Page
+                      pageNumber={pdfPageNumber}
+                      width={PDF_VIEWPORT_WIDTH}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                      className="border border-zinc-300 bg-white shadow-sm"
+                    />
+                  </div>
+                </Document>
+              </div>
+            ) : (
+              <>
+                <div
+                  className="mx-auto h-full"
+                  style={{
+                    width: `${100 / (zoomPercent / 100)}%`,
+                    transform: `scale(${zoomPercent / 100})`,
+                    transformOrigin: "top center",
+                  }}
+                >
+                  <iframe
+                    ref={previewFrameRef}
+                    src={previewUrl ?? undefined}
+                    className="h-full w-full border-none"
+                    title="Document Preview"
+                    onLoad={handlePreviewLoad}
+                    onError={handlePreviewError}
+                  />
+                </div>
+                {previewStatus === "loading" ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900/25">
+                    <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                    <p className="text-xs font-medium text-zinc-700">원문 미리보기를 불러오는 중입니다.</p>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+
+          {previewStatus === "error" ? (
+            <div className="mx-5 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{previewMessage ?? "문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요."}</span>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 flex flex-col">
-            <Tabs defaultValue="markdown" className="w-full h-full flex flex-col">
-              <div className="px-6 py-4">
-                <TabsList className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl h-10 p-1">
-                  <TabsTrigger value="markdown" className="rounded-lg px-6 font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                    <FileText className="h-3.5 w-3.5 mr-2" />
-                    Markdown
-                  </TabsTrigger>
-                  <TabsTrigger value="json" className="rounded-lg px-6 font-bold text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                    <FileJson className="h-3.5 w-3.5 mr-2" />
-                    JSON
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <div className="flex-1 px-6 pb-6 overflow-hidden">
-                <TabsContent value="markdown" className="m-0 h-full">
-                  <ScrollArea className="h-full w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6">
-                    <pre className="text-xs leading-loose whitespace-pre-wrap font-mono text-zinc-800 dark:text-zinc-200">
-                      {result.markdown}
-                    </pre>
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="json" className="m-0 h-full">
-                  <ScrollArea className="h-full w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6">
-                    <pre className="text-xs leading-relaxed font-mono text-zinc-800 dark:text-zinc-200">
-                      {JSON.stringify(result.canonicalJson, null, 2)}
-                    </pre>
-                  </ScrollArea>
-                </TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="mx-5 my-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {errorMessage}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              Results
+            </p>
+            <p className="text-sm font-semibold text-zinc-900">Parsed Output</p>
+          </div>
+
+          <select
+            value={resultView}
+            onChange={(e) => setResultView(e.target.value as "markdown" | "json")}
+            className="h-9 min-w-[140px] rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 outline-none ring-0 transition focus:border-zinc-300"
+            aria-label="Result format"
+          >
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+
+        <ScrollArea className="flex-1">
+          {resultView === "markdown" ? (
+            <div className="min-h-full space-y-8 px-6 py-6">
+              <section className="space-y-3 border-b border-zinc-100 pb-6">
+                <h1 className="text-[2rem] font-semibold tracking-tight text-zinc-900">
+                  문서 결과 미리보기
+                </h1>
+                <p className="max-w-2xl text-sm leading-7 text-zinc-500">
+                  좌측 원문과 우측 Markdown 결과를 같은 화면에서 비교 검수할 수 있도록 구성했습니다.
+                </p>
+              </section>
+
+              <section className="space-y-3 border-b border-zinc-100 pb-6">
+                <pre className="whitespace-pre-wrap text-xs leading-loose font-mono text-zinc-800">
+                  {result.markdown}
+                </pre>
+              </section>
+            </div>
+          ) : (
+            <div className="min-h-full px-6 py-6">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-7 text-zinc-600">
+                {JSON.stringify(result.canonicalJson, null, 2)}
+              </pre>
+            </div>
+          )}
+        </ScrollArea>
+      </section>
     </div>
   );
 }

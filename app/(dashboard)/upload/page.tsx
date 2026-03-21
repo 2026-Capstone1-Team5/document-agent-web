@@ -1,27 +1,81 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getParseJob, uploadDocument } from "@/lib/document-agent-api";
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Upload, Loader2, AlertCircle, CheckCircle2, Sparkles } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  Upload,
+} from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DocumentSummary,
+  getDocumentResult,
+  getParseJob,
+  getSourceUrl,
+  ParseResult,
+  uploadDocument,
+} from "@/lib/document-agent-api";
 
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 60000;
+const PDF_VIEWPORT_WIDTH = 728;
+
+pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type PreviewStatus = "idle" | "loading" | "loaded" | "error";
+
+function parsePreviewErrorMessage(rawText: string): string {
+  try {
+    const parsed = JSON.parse(rawText) as {
+      error?: {
+        message?: string;
+      };
+    };
+    const message = parsed.error?.message?.trim();
+    if (message) {
+      return message;
+    }
+  } catch {
+    // fall through
+  }
+  return "문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.";
 }
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const router = useRouter();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [resultView, setResultView] = useState<"markdown" | "json">("markdown");
+  const [parsedDocument, setParsedDocument] = useState<DocumentSummary | null>(null);
+  const [parsedResult, setParsedResult] = useState<ParseResult | null>(null);
+  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [pdfNumPages, setPdfNumPages] = useState(0);
+  const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const isActiveRef = useRef(true);
+  const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  const previewUrl = parsedDocument ? getSourceUrl(parsedDocument.id) : null;
+  const isPdfPreview = Boolean(
+    parsedDocument &&
+      (parsedDocument.contentType.toLowerCase().includes("pdf") ||
+        parsedDocument.filename.toLowerCase().endsWith(".pdf")),
+  );
 
   useEffect(() => {
     return () => {
@@ -29,19 +83,62 @@ export default function UploadPage() {
     };
   }, []);
 
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      setErrorMessage("Please select a file to upload.");
+  useEffect(() => {
+    if (!previewUrl) {
+      setPreviewStatus("idle");
+      setPreviewMessage(null);
+      return;
+    }
+    if (isPdfPreview) {
+      setPreviewStatus("idle");
+      setPreviewMessage(null);
+      return;
+    }
+    setPreviewStatus("loading");
+    setPreviewMessage(null);
+  }, [isPdfPreview, previewUrl]);
+
+  const handlePreviewLoad = () => {
+    const iframeDocument = previewFrameRef.current?.contentDocument;
+    const iframeContentType = iframeDocument?.contentType?.toLowerCase() ?? "";
+    const iframeBodyText = iframeDocument?.body?.innerText?.trim() ?? "";
+
+    if (
+      (iframeContentType.includes("application/json") || iframeContentType.includes("text/plain")) &&
+      iframeBodyText
+    ) {
+      setPreviewMessage(parsePreviewErrorMessage(iframeBodyText));
+      setPreviewStatus("error");
       return;
     }
 
+    setPreviewStatus("loaded");
+  };
+
+  const handlePreviewError = () => {
+    setPreviewMessage("문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.");
+    setPreviewStatus("error");
+  };
+
+  const startUpload = async (selectedFile: File) => {
+    if (!selectedFile) {
+      return;
+    }
+
+    setFile(selectedFile);
     setUploading(true);
     setErrorMessage(null);
-    let navigatingToDocument = false;
+    setSuccessMessage(null);
+    setParsedDocument(null);
+    setParsedResult(null);
+    setPreviewMessage(null);
+    setPreviewStatus("idle");
+    setZoomPercent(100);
+    setPdfNumPages(0);
+    setPdfPageNumber(1);
 
     try {
-      const queued = await uploadDocument(file);
+      const queued = await uploadDocument(selectedFile);
       const startedAt = Date.now();
 
       while (isActiveRef.current && Date.now() - startedAt < POLL_TIMEOUT_MS) {
@@ -55,8 +152,14 @@ export default function UploadPage() {
           if (!isActiveRef.current) {
             return;
           }
-          navigatingToDocument = true;
-          router.push(`/documents/${current.job.documentId}`);
+
+          const parsed = await getDocumentResult(current.job.documentId);
+          if (!isActiveRef.current) {
+            return;
+          }
+          setParsedDocument(parsed.document);
+          setParsedResult(parsed.result);
+          setSuccessMessage("파싱이 완료되었습니다. 아래에서 원문과 결과를 바로 확인해 주세요.");
           return;
         }
 
@@ -74,139 +177,323 @@ export default function UploadPage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("An error occurred during upload.");
+        setErrorMessage("업로드 처리 중 오류가 발생했습니다.");
       }
     } finally {
-      if (isActiveRef.current && !navigatingToDocument) {
+      if (isActiveRef.current) {
         setUploading(false);
       }
     }
   };
 
+  const handleFileSelection = (selectedFile: File | null) => {
+    if (!selectedFile || uploading) {
+      return;
+    }
+    void startUpload(selectedFile);
+  };
+
   return (
-    <div className="max-w-6xl flex flex-col lg:flex-row gap-6 items-stretch">
-      <div className="flex-1 space-y-6">
-        <Card className="h-full border-none shadow-sm bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-8">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 px-2 py-0 text-[10px]">Drag and Drop</Badge>
-              <div className="space-y-1">
-                <h1 className="text-2xl font-bold">문서 업로드 워크벤치</h1>
-                <p className="text-zinc-500 text-sm">파일을 올리면 파싱 작업을 생성하고, 완료되면 상세 검수 화면으로 이동합니다.</p>
-              </div>
-            </div>
+    <div className="-m-6 flex h-[calc(100svh-4rem)] min-h-[720px] flex-col overflow-hidden border-y border-zinc-200 bg-white lg:flex-row">
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col border-b border-zinc-200 lg:border-b-0 lg:border-r">
+        <div className="flex flex-1 flex-col bg-[radial-gradient(circle_at_top,_rgba(196,212,130,0.16),_transparent_34%),linear-gradient(180deg,#ffffff_0%,#fcfcf8_100%)]">
+          <Input
+            id="upload-file-input"
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const selectedFile = e.target.files?.[0] || null;
+              e.currentTarget.value = "";
+              handleFileSelection(selectedFile);
+            }}
+            accept=".pdf,image/*"
+          />
 
-            <div className="flex items-center justify-center w-full">
-              <label className="group flex flex-col items-center justify-center w-full h-80 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/30 dark:bg-zinc-900/30 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6 px-10 text-center space-y-4">
-                  <div className="h-16 w-16 bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                    <Upload className="h-8 w-8 text-zinc-400" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-lg font-bold">파일을 끌어 놓거나 클릭해서 선택하세요</p>
-                    <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
-                      복잡한 PDF, Office 문서, 이미지 문서를 대상으로 Markdown과 JSON 결과를 동시에 생성하는 흐름을 기준으로 설계했습니다.
-                    </p>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Badge variant="outline" className="text-[10px] text-zinc-400 font-normal">Markdown 결과</Badge>
-                    <Badge variant="outline" className="text-[10px] text-zinc-400 font-normal">Canonical JSON</Badge>
-                    <Badge variant="outline" className="text-[10px] text-zinc-400 font-normal">Preview-ready Viewer</Badge>
-                  </div>
-                  {file && (
-                    <div className="pt-4 flex items-center gap-2 text-primary font-bold animate-in fade-in slide-in-from-bottom-2">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span>{file.name}</span>
-                    </div>
-                  )}
+          {parsedDocument && parsedResult && previewUrl && previewStatus !== "error" ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-y border-zinc-200 bg-white">
+              <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+                    onClick={() => document.getElementById("upload-file-input")?.click()}
+                  >
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    Upload
+                  </button>
+                  <span className="max-w-[160px] truncate text-xs font-medium text-zinc-600">
+                    {parsedDocument.filename}
+                  </span>
                 </div>
-                <Input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  accept=".pdf,image/*"
-                />
-              </label>
-            </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button 
-                onClick={handleUpload}
-                disabled={uploading || !file}
-                className="h-11 px-8 rounded-xl font-bold"
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!isPdfPreview || pdfPageNumber <= 1}
+                    onClick={() => setPdfPageNumber((prev) => Math.max(1, prev - 1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, pdfNumPages)}
+                      value={pdfPageNumber}
+                      disabled={!isPdfPreview}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        const clamped = Math.min(Math.max(1, next), Math.max(1, pdfNumPages));
+                        setPdfPageNumber(clamped);
+                      }}
+                      className="h-8 w-12 border-zinc-200 px-2 text-center text-sm"
+                    />
+                    <span className="text-sm text-zinc-500">of</span>
+                    <span className="text-sm text-zinc-500">{pdfNumPages || "?"}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!isPdfPreview || !pdfNumPages || pdfPageNumber >= pdfNumPages}
+                    onClick={() => setPdfPageNumber((prev) => Math.min(pdfNumPages, prev + 1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+
+                  <div className="mx-1 h-5 w-px bg-zinc-200" />
+
+                  <button
+                    type="button"
+                    aria-label="Zoom Out"
+                    onClick={() => setZoomPercent((prev) => Math.max(60, prev - 10))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="w-14 text-center text-sm text-zinc-600">{zoomPercent}%</span>
+                  <button
+                    type="button"
+                    aria-label="Zoom In"
+                    onClick={() => setZoomPercent((prev) => Math.min(200, prev + 10))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Reset Zoom"
+                    onClick={() => setZoomPercent(100)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+
+                  <div className="mx-1 h-5 w-px bg-zinc-200" />
+
+              <a
+                href={getSourceUrl(parsedDocument.id, "attachment")}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+                aria-label="Download PDF"
+                download={parsedDocument.filename}
               >
-                {uploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    업로드 중...
-                  </>
+                <Download className="h-4 w-4" />
+              </a>
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="max-w-[120px] truncate">{parsedDocument.filename}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative min-h-0 flex-1 overflow-auto bg-[#f3f3f3]" tabIndex={0}>
+                {isPdfPreview ? (
+                  <div className="flex min-h-full justify-center p-4">
+                    <Document
+                      file={previewUrl}
+                      loading={
+                        <div className="flex h-[720px] w-[728px] items-center justify-center border border-zinc-300 bg-white">
+                          <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                        </div>
+                      }
+                      onLoadSuccess={({ numPages }) => {
+                        setPdfNumPages(numPages);
+                        setPdfPageNumber((prev) => Math.min(Math.max(prev, 1), numPages));
+                      }}
+                      onLoadError={(error) => {
+                        console.error(error);
+                        setPreviewMessage("PDF 미리보기를 불러오지 못했습니다.");
+                        setPreviewStatus("error");
+                      }}
+                    >
+                      <div
+                        className="inline-block origin-top"
+                        style={{ transform: `scale(${zoomPercent / 100})` }}
+                      >
+                        <Page
+                          pageNumber={pdfPageNumber}
+                          width={PDF_VIEWPORT_WIDTH}
+                          renderAnnotationLayer={false}
+                          renderTextLayer={false}
+                          className="border border-zinc-300 bg-white shadow-sm"
+                        />
+                      </div>
+                    </Document>
+                  </div>
                 ) : (
-                  "업로드 시작"
+                  <>
+                    <div
+                      className="mx-auto h-full"
+                      style={{
+                        width: `${100 / (zoomPercent / 100)}%`,
+                        transform: `scale(${zoomPercent / 100})`,
+                        transformOrigin: "top center",
+                      }}
+                    >
+                      <iframe
+                        ref={previewFrameRef}
+                        src={previewUrl}
+                        className="h-full w-full border-none"
+                        title="Document Preview"
+                        onLoad={handlePreviewLoad}
+                        onError={handlePreviewError}
+                      />
+                    </div>
+                    {previewStatus === "loading" ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900/25">
+                        <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                        <p className="text-xs font-medium text-zinc-700">원문 미리보기를 불러오는 중입니다.</p>
+                      </div>
+                    ) : null}
+                  </>
                 )}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setFile(null)}
-                disabled={!file || uploading}
-                className="h-11 px-8 rounded-xl font-bold border-zinc-200"
-              >
-                파일 다시 선택
-              </Button>
-            </div>
-            
-            {errorMessage && (
-              <div className="flex items-center gap-2 p-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <p className="font-medium">{errorMessage}</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="w-full lg:w-80">
-        <Card className="h-full border-none shadow-sm bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-6">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <Badge variant="secondary" className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 px-2 py-0 text-[10px]">Upload State</Badge>
-              <div className="space-y-1">
-                <h2 className="text-lg font-bold">현재 상태</h2>
-                <p className="text-zinc-500 text-xs leading-relaxed">파일을 선택하면 바로 파싱 요청을 시작할 수 있습니다.</p>
               </div>
             </div>
-
-            <div className="p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex flex-col items-center justify-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 flex items-center justify-center shadow-sm">
-                {uploading ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Sparkles className="h-5 w-5 text-zinc-400" />}
+          ) : (
+            <button
+              type="button"
+              onClick={() => document.getElementById("upload-file-input")?.click()}
+              className="m-5 flex flex-1 flex-col items-center justify-center gap-5 rounded-[28px] border border-dashed border-zinc-300 bg-white/80 px-10 text-center transition hover:border-zinc-400 hover:bg-white"
+            >
+              <div className="flex h-20 w-20 items-center justify-center rounded-[26px] border border-[#d8e7a5] bg-[#f8fcd8]">
+                {uploading ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-[#7d8c36]" />
+                ) : (
+                  <Upload className="h-8 w-8 text-[#7d8c36]" />
+                )}
               </div>
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">STAGE</p>
-                <p className="font-bold text-zinc-800 dark:text-zinc-200">
-                  {uploading ? "업로드 및 파싱 중..." : (file ? "업로드 대기 중" : "파일 선택 대기 중")}
+              <div className="space-y-3">
+                <p className="text-2xl font-semibold tracking-tight text-zinc-900">
+                  파일을 끌어 놓거나 클릭해서 선택하세요
+                </p>
+                <p className="mx-auto max-w-lg text-sm leading-6 text-zinc-500">
+                  업로드가 시작되면 parse job을 생성하고, 결과 준비가 끝나면 이 화면에서 결과를 확인합니다.
                 </p>
               </div>
-            </div>
+              {file ? (
+                <div className="rounded-full border border-[#d8e7a5] bg-[#f8fcd8] px-4 py-1.5 text-sm font-medium text-[#667226]">
+                  {file.name}
+                </div>
+              ) : null}
+            </button>
+          )}
 
-            <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-              <h3 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">이 브랜치에서 유지하는 업로드 규칙</h3>
-              <ul className="space-y-3 text-[11px] text-zinc-500 leading-relaxed">
-                <li className="flex gap-2">
-                  <span className="shrink-0">•</span>
-                  <span>문서 업로드 뒤 async parse job을 생성하고 완료 시 상세 Viewer로 이동합니다.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="shrink-0">•</span>
-                  <span>결과는 Markdown과 JSON을 모두 1급 출력으로 다룹니다.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="shrink-0">•</span>
-                  <span>원문 미리보기 패널은 API 연결 전까지 placeholder 상태로 유지합니다.</span>
-                </li>
-              </ul>
+          {previewStatus === "error" ? (
+            <div className="mx-5 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{previewMessage ?? "문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요."}</span>
+              </div>
             </div>
+          ) : null}
+
+          <div className="px-5 py-4 text-sm text-zinc-500">
+            {uploading
+              ? "업로드가 진행 중입니다. 파싱 완료까지 잠시만 기다려 주세요."
+              : "파일을 선택하면 자동으로 업로드를 시작합니다."}
           </div>
-        </Card>
-      </div>
+
+          {errorMessage ? (
+            <div className="mx-5 mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {successMessage ? (
+            <div className="mx-5 mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+              {successMessage}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              Results
+            </p>
+            <p className="text-sm font-semibold text-zinc-900">
+              Parsed Output
+            </p>
+          </div>
+
+          <select
+            value={resultView}
+            onChange={(e) => setResultView(e.target.value as "markdown" | "json")}
+            className="h-9 min-w-[140px] rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 outline-none ring-0 transition focus:border-zinc-300"
+            aria-label="Result format"
+          >
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+
+        <ScrollArea className="flex-1">
+          {resultView === "markdown" ? (
+            <div className="min-h-full space-y-8 px-6 py-6">
+              <section className="space-y-3 border-b border-zinc-100 pb-6">
+                <h1 className="text-[2rem] font-semibold tracking-tight text-zinc-900">
+                  문서 결과 미리보기
+                </h1>
+                <p className="max-w-2xl text-sm leading-7 text-zinc-500">
+                  업로드가 끝나면 이 영역에 추출된 Markdown 결과가 바로 표시됩니다. 제목, 섹션, 표 요약, 본문 구조를 검수하는 작업을 기준으로 구성했습니다.
+                </p>
+              </section>
+
+              <section className="space-y-3 border-b border-zinc-100 pb-6">
+                {parsedResult ? (
+                  <pre className="whitespace-pre-wrap text-xs leading-loose font-mono text-zinc-800">
+                    {parsedResult.markdown}
+                  </pre>
+                ) : (
+                  <p className="text-sm leading-7 text-zinc-600">
+                    아직 결과가 없습니다. 파일 업로드가 완료되면 이 영역에 실제 Markdown 결과가 표시됩니다.
+                  </p>
+                )}
+              </section>
+            </div>
+          ) : (
+            <div className="min-h-full px-6 py-6">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-7 text-zinc-600">
+                {parsedResult
+                  ? JSON.stringify(parsedResult.canonicalJson, null, 2)
+                  : `{
+  "status": "waiting_for_upload",
+  "message": "파일 업로드 후 JSON 결과가 표시됩니다."
+}`}
+              </pre>
+            </div>
+          )}
+        </ScrollArea>
+      </section>
     </div>
   );
 }
