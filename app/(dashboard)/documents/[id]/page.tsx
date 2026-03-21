@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  FileText,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -37,6 +36,10 @@ export default function DocumentDetailPage() {
   const isPdfPreview = Boolean(
     doc && (doc.contentType.toLowerCase().includes("pdf") || doc.filename.toLowerCase().endsWith(".pdf")),
   );
+  const resultDownloadExt = resultView === "markdown" ? "md" : "json";
+  const resultDownloadName = doc
+    ? `${doc.filename.replace(/\.[^.]+$/, "")}.${resultDownloadExt}`
+    : undefined;
 
   useEffect(() => {
     const fetchDocDetail = async () => {
@@ -126,13 +129,6 @@ export default function DocumentDetailPage() {
             downloadFileName={doc.filename}
             toolbarActions={(
               <>
-                <a
-                  href={getDownloadUrl(doc.id, "markdown")}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
-                  aria-label="Download markdown"
-                >
-                  <FileText className="h-4 w-4" />
-                </a>
                 <button
                   type="button"
                   onClick={() => void handleDelete()}
@@ -161,6 +157,8 @@ export default function DocumentDetailPage() {
       <ResultViewerPanel
         resultView={resultView}
         onResultViewChange={setResultView}
+        downloadUrl={getDownloadUrl(doc.id, resultView)}
+        downloadFileName={resultDownloadName}
         state="ready"
         markdownContent={result.markdown}
         jsonContent={result.canonicalJson}

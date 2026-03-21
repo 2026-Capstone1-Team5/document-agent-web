@@ -11,13 +11,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 
 type ResultView = "markdown" | "json";
 
 type ResultViewerPanelProps = {
   resultView: ResultView;
   onResultViewChange: (next: ResultView) => void;
+  downloadUrl?: string;
+  downloadFileName?: string;
 } & (
   | {
       state: "ready";
@@ -36,6 +38,8 @@ type ResultViewerPanelProps = {
 export function ResultViewerPanel({
   resultView,
   onResultViewChange,
+  downloadUrl,
+  downloadFileName,
   state,
   markdownContent,
   jsonContent,
@@ -54,33 +58,46 @@ export function ResultViewerPanel({
           <p className="text-sm font-semibold text-zinc-900">Parsed Output</p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                className="h-9 min-w-[140px] justify-between border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700"
-                aria-label="Result format"
-              >
-                {resultView === "markdown" ? "Markdown" : "JSON"}
-                <ChevronDown data-icon="inline-end" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              <DropdownMenuRadioGroup
-                value={resultView}
-                onValueChange={(value) => onResultViewChange(value as ResultView)}
-              >
-                <DropdownMenuRadioItem value="markdown">
-                  Markdown
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="json">JSON</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              download={downloadFileName}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-100"
+              aria-label="Download result"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+          ) : null}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className="h-9 min-w-[140px] justify-between border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700"
+                  aria-label="Result format"
+                >
+                  {resultView === "markdown" ? "Markdown" : "JSON"}
+                  <ChevronDown data-icon="inline-end" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuRadioGroup
+                  value={resultView}
+                  onValueChange={(value) => onResultViewChange(value as ResultView)}
+                >
+                  <DropdownMenuRadioItem value="markdown">
+                    Markdown
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="json">JSON</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 p-4">
