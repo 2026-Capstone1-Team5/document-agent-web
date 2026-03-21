@@ -72,6 +72,52 @@ export function SourcePreviewPanel({
   const [pdfNumPages, setPdfNumPages] = useState(0);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  const scrollToPage = (page: number, behavior: ScrollBehavior = "smooth") => {
+    if (!isPdfPreview) {
+      return;
+    }
+    const clamped = Math.min(Math.max(1, page), Math.max(1, pdfNumPages));
+    setPdfPageNumber(clamped);
+    const container = scrollContainerRef.current;
+    const target = pageRefs.current[clamped];
+    if (!container || !target) {
+      return;
+    }
+    container.scrollTo({
+      top: target.offsetTop - 12,
+      behavior,
+    });
+  };
+
+  const handlePdfScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container || !pdfNumPages) {
+      return;
+    }
+    const centerY = container.scrollTop + container.clientHeight / 2;
+    let closestPage = pdfPageNumber;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    for (let page = 1; page <= pdfNumPages; page += 1) {
+      const node = pageRefs.current[page];
+      if (!node) {
+        continue;
+      }
+      const pageCenter = node.offsetTop + node.offsetHeight / 2;
+      const distance = Math.abs(centerY - pageCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestPage = page;
+      }
+    }
+
+    if (closestPage !== pdfPageNumber) {
+      setPdfPageNumber(closestPage);
+    }
+  };
 
   const handlePreviewLoad = () => {
     const iframeDocument = previewFrameRef.current?.contentDocument;
@@ -109,7 +155,7 @@ export function SourcePreviewPanel({
           <button
             type="button"
             disabled={!isPdfPreview || pdfPageNumber <= 1}
-            onClick={() => setPdfPageNumber((prev) => Math.max(1, prev - 1))}
+            onClick={() => scrollToPage(pdfPageNumber - 1)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -128,7 +174,7 @@ export function SourcePreviewPanel({
                   return;
                 }
                 const clamped = Math.min(Math.max(1, next), Math.max(1, pdfNumPages));
-                setPdfPageNumber(clamped);
+                scrollToPage(clamped, "auto");
               }}
               className="h-8 w-12 border-zinc-200 px-2 text-center text-sm"
             />
@@ -139,7 +185,7 @@ export function SourcePreviewPanel({
           <button
             type="button"
             disabled={!isPdfPreview || !pdfNumPages || pdfPageNumber >= pdfNumPages}
-            onClick={() => setPdfPageNumber((prev) => Math.min(pdfNumPages, prev + 1))}
+            onClick={() => scrollToPage(pdfPageNumber + 1)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 disabled:opacity-50"
           >
             <ChevronRight className="h-4 w-4" />
@@ -195,7 +241,12 @@ export function SourcePreviewPanel({
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto bg-[#f3f3f3]" tabIndex={0}>
+      <div
+        ref={scrollContainerRef}
+        onScroll={isPdfPreview ? handlePdfScroll : undefined}
+        className="relative min-h-0 flex-1 overflow-auto bg-[#f3f3f3]"
+        tabIndex={0}
+      >
         {previewStatus === "error" ? (
           <div className="absolute inset-6 flex flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 px-6 text-center">
             <AlertCircle className="h-6 w-6 text-red-500" />
@@ -214,7 +265,8 @@ export function SourcePreviewPanel({
               }
               onLoadSuccess={({ numPages }) => {
                 setPdfNumPages(numPages);
-                setPdfPageNumber((prev) => Math.min(Math.max(prev, 1), numPages));
+                const currentPage = Math.min(Math.max(pdfPageNumber, 1), numPages);
+                setPdfPageNumber(currentPage);
                 setPreviewStatus("loaded");
               }}
               onLoadError={(error) => {
@@ -223,17 +275,25 @@ export function SourcePreviewPanel({
                 setPreviewStatus("error");
               }}
             >
-              <div
-                className="inline-block origin-top"
-                style={{ transform: `scale(${zoomPercent / 100})` }}
-              >
-                <Page
-                  pageNumber={pdfPageNumber}
-                  width={PDF_VIEWPORT_WIDTH}
-                  renderAnnotationLayer={false}
-                  renderTextLayer={false}
-                  className="border border-zinc-300 bg-white shadow-sm"
-                />
+              <div className="flex flex-col gap-4 pb-4">
+                {Array.from({ length: pdfNumPages }, (_, idx) => idx + 1).map((page) => (
+                  <div
+                    key={page}
+                    ref={(node) => {
+                      pageRefs.current[page] = node;
+                    }}
+                    className="inline-block"
+                  >
+                    <Page
+                      pageNumber={page}
+                      width={PDF_VIEWPORT_WIDTH}
+                      scale={zoomPercent / 100}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                      className="border border-zinc-300 bg-white shadow-sm"
+                    />
+                  </div>
+                ))}
               </div>
             </Document>
           </div>
