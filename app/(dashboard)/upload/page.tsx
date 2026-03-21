@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getParseJob, uploadDocument } from "@/lib/document-agent-api";
 import { Card } from "@/components/ui/card"
@@ -21,6 +21,13 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
+  const isActiveRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isActiveRef.current = false;
+    };
+  }, []);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +44,7 @@ export default function UploadPage() {
       const queued = await uploadDocument(file);
       const startedAt = Date.now();
 
-      while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+      while (isActiveRef.current && Date.now() - startedAt < POLL_TIMEOUT_MS) {
         const current = await getParseJob(queued.job.id);
 
         if (current.job.status === "failed") {
@@ -45,6 +52,9 @@ export default function UploadPage() {
         }
 
         if (current.job.documentId) {
+          if (!isActiveRef.current) {
+            return;
+          }
           navigatingToDocument = true;
           router.push(`/documents/${current.job.documentId}`);
           return;
@@ -53,16 +63,21 @@ export default function UploadPage() {
         await wait(POLL_INTERVAL_MS);
       }
 
-      setErrorMessage("업로드는 완료되었지만 파싱이 아직 진행 중입니다. 문서 목록에서 잠시 후 다시 확인해 주세요.");
+      if (isActiveRef.current) {
+        setErrorMessage("업로드는 완료되었지만 파싱이 아직 진행 중입니다. 문서 목록에서 잠시 후 다시 확인해 주세요.");
+      }
     } catch (error) {
       console.error(error);
+      if (!isActiveRef.current) {
+        return;
+      }
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
         setErrorMessage("An error occurred during upload.");
       }
     } finally {
-      if (!navigatingToDocument) {
+      if (isActiveRef.current && !navigatingToDocument) {
         setUploading(false);
       }
     }
