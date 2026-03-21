@@ -7,21 +7,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Plus,
   ExternalLink,
   Loader2,
   AlertCircle,
-  Search,
   FileText,
-  ChevronDown,
 } from "lucide-react";
 import {
   Table,
@@ -56,8 +46,6 @@ export default function DocumentListPage() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"latest" | "oldest" | "name">("latest");
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -79,19 +67,7 @@ export default function DocumentListPage() {
     fetchDocuments();
   }, []);
 
-  const normalizedQuery = query.trim().toLowerCase();
-  const filteredDocuments = documents
-    .filter((doc) => doc.filename.toLowerCase().includes(normalizedQuery))
-    .sort((a, b) => {
-      if (sort === "name") {
-        return a.filename.localeCompare(b.filename, "ko");
-      }
-      const aTime = new Date(a.createdAt).getTime();
-      const bTime = new Date(b.createdAt).getTime();
-      return sort === "latest" ? bTime - aTime : aTime - bTime;
-    });
-
-  const latestUpload = filteredDocuments[0]?.createdAt ?? null;
+  const latestUpload = documents[0]?.createdAt ?? null;
 
   if (loading) {
     return (
@@ -124,54 +100,7 @@ export default function DocumentListPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 border-b border-zinc-200 px-6 py-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-        <label className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-500">
-          <Search className="h-4 w-4 text-zinc-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="파일명으로 검색"
-            className="w-full bg-transparent text-zinc-700 outline-none placeholder:text-zinc-400"
-          />
-        </label>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                className="h-10 w-full justify-between rounded-lg border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700"
-                aria-label="문서 정렬"
-              >
-                {sort === "latest"
-                  ? "최신 업로드순"
-                  : sort === "oldest"
-                    ? "오래된 업로드순"
-                    : "파일명순"}
-                <ChevronDown data-icon="inline-end" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="start">
-            <DropdownMenuGroup>
-              <DropdownMenuRadioGroup
-                value={sort}
-                onValueChange={(value) =>
-                  setSort(value as "latest" | "oldest" | "name")
-                }
-              >
-                <DropdownMenuRadioItem value="latest">
-                  최신 업로드순
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="oldest">
-                  오래된 업로드순
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="name">파일명순</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
+      <div className="grid grid-cols-1 gap-3 border-b border-zinc-200 px-6 py-4">
         <div className="flex items-center gap-2 text-xs text-zinc-500">
           <span className="hidden lg:inline">
             마지막 업로드: {latestUpload ? formatDate(latestUpload) : "없음"}
@@ -209,7 +138,7 @@ export default function DocumentListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredDocuments.length === 0 ? (
+              {documents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-[360px] px-6">
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -220,11 +149,7 @@ export default function DocumentListPage() {
                         <p className="text-sm font-semibold text-zinc-700">
                           표시할 문서가 없습니다.
                         </p>
-                        <p className="text-sm text-zinc-500">
-                          {query
-                            ? "검색어를 변경하거나 새 문서를 업로드해 주세요."
-                            : "문서를 업로드하면 이 목록에 표시됩니다."}
-                        </p>
+                        <p className="text-sm text-zinc-500">문서를 업로드하면 이 목록에 표시됩니다.</p>
                       </div>
                       <Button render={<Link href="/upload" />} variant="outline" className="h-9 px-4 font-semibold">
                         <Plus className="mr-2 h-4 w-4" />
@@ -234,7 +159,7 @@ export default function DocumentListPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredDocuments.map((doc) => (
+                documents.map((doc) => (
                   <TableRow
                     key={doc.id}
                     className="border-zinc-100 transition-colors hover:bg-zinc-50/60"
