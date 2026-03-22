@@ -175,7 +175,7 @@ export function ResultViewerPanel({
   );
 
   const resultContent = (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 items-center justify-between border-b border-zinc-200 bg-white px-4">
         <div className="flex items-center gap-4">
           <DropdownMenu>
@@ -254,7 +254,7 @@ export function ResultViewerPanel({
 
       <div className="flex-1 min-h-0 bg-[#fbfbfb] p-5">
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-          <ScrollArea className="h-full min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-auto">
             <div className="p-6">
               {resultView === "markdown" ? (
                 isReady ? (
@@ -293,10 +293,10 @@ export function ResultViewerPanel({
                 </pre>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 
   if (!showConfigTab) {
