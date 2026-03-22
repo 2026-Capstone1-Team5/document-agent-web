@@ -157,9 +157,6 @@
     @apply bg-background text-foreground antialiased;
   }
 }
-
-
-.doc-viewer-embedded .rdv-header-bar,
 .doc-viewer-embedded .rdv-header-bar {
   display: none !important;
 }
