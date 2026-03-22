@@ -45,11 +45,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData()
-    const response = await fetchDocumentAgentApi("/documents", {
-      method: "POST",
-      headers: createAuthHeaders(accessToken),
-      body: formData,
-    })
+    const query = new URLSearchParams()
+    const parserBackend = request.nextUrl.searchParams.get("parserBackend")
+    if (parserBackend) {
+      query.set("parserBackend", parserBackend)
+    }
+
+    const response = await fetchDocumentAgentApi(
+      "/documents",
+      {
+        method: "POST",
+        headers: createAuthHeaders(accessToken),
+        body: formData,
+      },
+      query,
+    )
 
     if (!response.ok) {
       const error = await parseBackendApiError(
