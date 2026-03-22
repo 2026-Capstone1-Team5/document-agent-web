@@ -34,12 +34,29 @@ function formatDate(value: string) {
 }
 
 function inferFileType(doc: DocumentSummary) {
-  const type = doc.contentType?.split("/")[1]?.toUpperCase();
-  if (type) {
-    return type;
+  const ext = doc.filename.split(".").pop()?.toLowerCase();
+  if (ext) {
+    switch (ext) {
+      case "pdf":
+        return "PDF";
+      case "docx":
+        return "DOCX";
+      case "pptx":
+        return "PPTX";
+      case "xlsx":
+        return "XLSX";
+      case "png":
+        return "PNG";
+      case "jpg":
+      case "jpeg":
+        return "JPG";
+      default:
+        return ext.toUpperCase();
+    }
   }
-  const ext = doc.filename.split(".").pop()?.toUpperCase();
-  return ext || "FILE";
+
+  const type = doc.contentType?.split("/")[1]?.toUpperCase();
+  return type || "FILE";
 }
 
 export default function DocumentListPage() {

@@ -9,6 +9,8 @@ import {
   Download,
   FileText,
   Loader2,
+  Maximize2,
+  Minimize2,
   Minus,
   Plus,
   RotateCcw,
@@ -18,6 +20,10 @@ import mammoth from "mammoth";
 import { Document, Page, pdfjs } from "react-pdf";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
+import {
+  XlsxPreviewViewer,
+  type XlsxSheetPreview,
+} from "@/components/dashboard/xlsx-preview-viewer";
 
 const PDF_VIEWPORT_WIDTH = 728;
 
@@ -52,15 +58,6 @@ type SourcePreviewPanelProps = {
   mode: "pdf" | "image" | "docx" | "xlsx" | "pptx" | "embed";
 };
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function extractSlideTexts(xml: string): string[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "application/xml");
@@ -81,15 +78,17 @@ export function SourcePreviewPanel({
   downloadFileName,
 }: SourcePreviewPanelProps) {
   const isPdfPreview = mode === "pdf";
-  const supportsZoom = mode === "pdf" || mode === "image" || mode === "embed";
+  const supportsZoom = true;
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>(
     isPdfPreview ? "idle" : mode === "image" ? "loaded" : "loading",
   );
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [pdfNumPages, setPdfNumPages] = useState(0);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
+  const [xlsxSheets, setXlsxSheets] = useState<XlsxSheetPreview[]>([]);
   const [pptxSlides, setPptxSlides] = useState<string[][]>([]);
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -108,6 +107,7 @@ export function SourcePreviewPanel({
     const loadPreview = async () => {
       if (mode === "pdf" || mode === "image" || mode === "embed") {
         setHtmlPreview(null);
+        setXlsxSheets([]);
         setPptxSlides([]);
         if (mode !== "embed") {
           setPreviewStatus(mode === "image" ? "loaded" : "idle");
@@ -120,6 +120,7 @@ export function SourcePreviewPanel({
       setPreviewStatus("loading");
       setPreviewMessage(null);
       setHtmlPreview(null);
+      setXlsxSheets([]);
       setPptxSlides([]);
 
       try {
@@ -141,17 +142,31 @@ export function SourcePreviewPanel({
           setHtmlPreview(result.value);
         } else if (mode === "xlsx") {
           const workbook = XLSX.read(arrayBuffer, { type: "array" });
-          const html = workbook.SheetNames.map((sheetName) => {
+          const sheets = workbook.SheetNames.map((sheetName) => {
             const sheet = workbook.Sheets[sheetName];
-            const tableHtml = XLSX.utils.sheet_to_html(sheet);
-            return `
-              <section class="sheet-preview">
-                <h3>${escapeHtml(sheetName)}</h3>
-                <div class="sheet-table">${tableHtml}</div>
-              </section>
-            `;
-          }).join("");
-          setHtmlPreview(html);
+            const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(sheet, {
+              header: 1,
+              raw: false,
+              blankrows: true,
+            });
+            const normalizedRows = rows.map((row) =>
+              row.map((cell) => (cell == null ? "" : String(cell))),
+            );
+            const maxColumnCount = normalizedRows.reduce(
+              (max, row) => Math.max(max, row.length),
+              0,
+            );
+            return {
+              name: sheetName,
+              columns: Array.from({ length: maxColumnCount }, (_, index) =>
+                XLSX.utils.encode_col(index),
+              ),
+              rows: normalizedRows.map((row) =>
+                Array.from({ length: maxColumnCount }, (_, index) => row[index] ?? ""),
+              ),
+            };
+          });
+          setXlsxSheets(sheets);
         } else if (mode === "pptx") {
           const archive = await JSZip.loadAsync(arrayBuffer);
           const slideEntries = Object.keys(archive.files)
@@ -187,6 +202,17 @@ export function SourcePreviewPanel({
       cancelled = true;
     };
   }, [mode, previewUrl]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === scrollContainerRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const scrollToPage = (page: number, behavior: ScrollBehavior = "smooth") => {
     if (!isPdfPreview) {
@@ -252,6 +278,20 @@ export function SourcePreviewPanel({
   const handlePreviewError = () => {
     setPreviewMessage("문서를 불러오지 못했습니다. API 연결 상태를 확인해 주세요.");
     setPreviewStatus("error");
+  };
+
+  const toggleFullscreen = async () => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    if (document.fullscreenElement === container) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    await container.requestFullscreen();
   };
 
   return (
@@ -340,6 +380,21 @@ export function SourcePreviewPanel({
               <div className="mx-1 h-5 w-px bg-zinc-200" />
             </>
           ) : null}
+
+          <button
+            type="button"
+            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            onClick={() => void toggleFullscreen()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </button>
+
+          <div className="mx-1 h-5 w-px bg-zinc-200" />
 
           {downloadUrl ? (
             <a
@@ -432,35 +487,62 @@ export function SourcePreviewPanel({
               }}
             />
           </div>
+        ) : mode === "xlsx" && xlsxSheets.length ? (
+          <div
+            className="mx-auto h-full"
+            style={{
+              width: `${100 / (zoomPercent / 100)}%`,
+              transform: `scale(${zoomPercent / 100})`,
+              transformOrigin: "top center",
+            }}
+          >
+            <XlsxPreviewViewer sheets={xlsxSheets} />
+          </div>
         ) : mode === "pptx" ? (
-          <div className="mx-auto w-full max-w-4xl space-y-4 p-6">
-            {previewStatus === "loading" ? (
-              <div className="flex h-48 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
-              </div>
-            ) : (
-              pptxSlides.map((slide, index) => (
-                <section key={index} className="rounded-2xl border border-zinc-300 bg-white p-6 shadow-sm">
-                  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                    Slide {index + 1}
-                  </p>
-                  <div className="space-y-2">
-                    {slide.length ? (
-                      slide.map((text, textIndex) => (
-                        <p key={textIndex} className="text-sm leading-7 text-zinc-800">
-                          {text}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-sm text-zinc-500">텍스트를 추출할 수 없는 슬라이드입니다.</p>
-                    )}
-                  </div>
-                </section>
-              ))
-            )}
+          <div
+            className="mx-auto w-full max-w-4xl"
+            style={{
+              width: `${100 / (zoomPercent / 100)}%`,
+              transform: `scale(${zoomPercent / 100})`,
+              transformOrigin: "top center",
+            }}
+          >
+            <div className="space-y-4 p-6">
+              {previewStatus === "loading" ? (
+                <div className="flex h-48 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                </div>
+              ) : (
+                pptxSlides.map((slide, index) => (
+                  <section key={index} className="rounded-2xl border border-zinc-300 bg-white p-6 shadow-sm">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                      Slide {index + 1}
+                    </p>
+                    <div className="space-y-2">
+                      {slide.length ? (
+                        slide.map((text, textIndex) => (
+                          <p key={textIndex} className="text-sm leading-7 text-zinc-800">
+                            {text}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-sm text-zinc-500">텍스트를 추출할 수 없는 슬라이드입니다.</p>
+                      )}
+                    </div>
+                  </section>
+                ))
+              )}
+            </div>
           </div>
         ) : officeHtml ? (
-          <div className="mx-auto w-full max-w-5xl p-6">
+          <div
+            className="mx-auto w-full max-w-5xl"
+            style={{
+              width: `${100 / (zoomPercent / 100)}%`,
+              transform: `scale(${zoomPercent / 100})`,
+              transformOrigin: "top center",
+            }}
+          >
             <div
               className="office-preview rounded-2xl border border-zinc-300 bg-white p-6 shadow-sm"
               dangerouslySetInnerHTML={{ __html: officeHtml }}
