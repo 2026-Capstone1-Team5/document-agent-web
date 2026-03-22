@@ -510,11 +510,6 @@ export function SourcePreviewPanel({
           >
             <XlsxPreviewViewer sheets={xlsxSheets} />
           </div>
-        ) : previewStatus === "loading" ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900/5">
-            <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
-            <p className="text-xs font-medium text-zinc-700">원문 미리보기를 불러오는 중입니다.</p>
-          </div>
         ) : mode === "embed" ? (
           <>
             <div
@@ -541,6 +536,11 @@ export function SourcePreviewPanel({
               </div>
             ) : null}
           </>
+        ) : previewStatus === "loading" ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900/5">
+            <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+            <p className="text-xs font-medium text-zinc-700">원문 미리보기를 불러오는 중입니다.</p>
+          </div>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <p className="text-sm font-medium text-zinc-500">이 형식의 원문 미리보기를 준비하지 못했습니다.</p>
