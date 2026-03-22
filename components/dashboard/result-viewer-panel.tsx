@@ -1,6 +1,8 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +25,7 @@ import {
 
 type ResultView = "markdown" | "json";
 type PanelTab = "config" | "result";
+type MarkdownMode = "preview" | "raw";
 
 type ResultViewerPanelProps = {
   panelTab: PanelTab;
@@ -74,6 +77,7 @@ export function ResultViewerPanel({
   onRefresh,
 }: ResultViewerPanelProps) {
   const isReady = state === "ready";
+  const [markdownMode, setMarkdownMode] = useState<MarkdownMode>("preview");
 
   const resultContent = (
     <>
@@ -107,6 +111,33 @@ export function ResultViewerPanel({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {resultView === "markdown" ? (
+            <div className="inline-flex h-8 items-center rounded-md border border-zinc-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setMarkdownMode("preview")}
+                className={`inline-flex h-7 items-center rounded-sm px-2.5 text-xs font-medium transition ${
+                  markdownMode === "preview"
+                    ? "bg-zinc-900 text-white"
+                    : "text-zinc-500 hover:text-zinc-900"
+                }`}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarkdownMode("raw")}
+                className={`inline-flex h-7 items-center rounded-sm px-2.5 text-xs font-medium transition ${
+                  markdownMode === "raw"
+                    ? "bg-zinc-900 text-white"
+                    : "text-zinc-500 hover:text-zinc-900"
+                }`}
+              >
+                Raw
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-0.5">
@@ -132,11 +163,19 @@ export function ResultViewerPanel({
             <div className="p-6">
               {resultView === "markdown" ? (
                 isReady ? (
-                  <div className="prose prose-zinc max-w-none">
-                    <pre className="whitespace-pre-wrap text-[13px] leading-relaxed font-mono text-zinc-800 bg-transparent p-0">
-                      {markdownContent}
-                    </pre>
-                  </div>
+                  markdownMode === "preview" ? (
+                    <div className="prose prose-zinc max-w-none prose-headings:scroll-mt-20 prose-pre:overflow-x-auto prose-table:block prose-table:w-full prose-table:overflow-x-auto prose-th:text-left prose-td:align-top">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {markdownContent}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="prose prose-zinc max-w-none">
+                      <pre className="whitespace-pre-wrap text-[13px] leading-relaxed font-mono text-zinc-800 bg-transparent p-0">
+                        {markdownContent}
+                      </pre>
+                    </div>
+                  )
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
                     <p className="text-sm text-zinc-500">
