@@ -4,6 +4,7 @@ import { ReactNode, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { PanelTab } from "@/lib/document-agent-api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +26,6 @@ import {
 } from "lucide-react";
 
 type ResultView = "markdown" | "json";
-type PanelTab = "config" | "result";
 type MarkdownMode = "preview" | "raw";
 
 type ResultViewerPanelProps = {
