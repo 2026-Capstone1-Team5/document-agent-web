@@ -254,5 +254,12 @@ export function isSupportedUploadFile(file: Pick<File, "name" | "type">): boolea
     return true
   }
 
-  return contentType === "image/png" || contentType === "image/jpeg"
+  return (
+    contentType.includes("pdf") ||
+    contentType === "image/png" ||
+    contentType === "image/jpeg" ||
+    contentType.includes("wordprocessingml") ||
+    contentType.includes("spreadsheetml") ||
+    contentType.includes("presentationml")
+  )
 }
