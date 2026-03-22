@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  CellContext,
   ColumnDef,
   flexRender,
   getCoreRowModel,
@@ -54,12 +55,12 @@ export function XlsxPreviewViewer({ sheets }: XlsxPreviewViewerProps) {
           </span>
         ),
       },
-      ...activeSheet.columns.map((columnLabel, index) => ({
+      ...activeSheet.columns.map<ColumnDef<XlsxRow>>((columnLabel, index) => ({
         id: `col-${index}`,
         accessorKey: `col-${index}`,
         header: columnLabel,
-        cell: ({ getValue }) => {
-          const value = String(getValue<string>() ?? "");
+        cell: ({ getValue }: CellContext<XlsxRow, string | number>) => {
+          const value = String(getValue() ?? "");
           return (
             <span
               className={cn(
