@@ -244,12 +244,16 @@ export function SourcePreviewPanel({
       return;
     }
 
-    if (document.fullscreenElement === container) {
-      await document.exitFullscreen();
-      return;
-    }
+    try {
+      if (document.fullscreenElement === container) {
+        await document.exitFullscreen();
+        return;
+      }
 
-    await container.requestFullscreen();
+      await container.requestFullscreen();
+    } catch (error) {
+      console.error("Failed to toggle fullscreen", error);
+    }
   };
 
   return (
