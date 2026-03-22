@@ -26,6 +26,9 @@ import {
 } from "@/components/dashboard/xlsx-preview-viewer";
 
 const PDF_VIEWPORT_WIDTH = 728;
+const MAX_XLSX_PREVIEW_SHEETS = 5;
+const MAX_XLSX_PREVIEW_ROWS = 200;
+const MAX_XLSX_PREVIEW_COLUMNS = 50;
 
 type PreviewStatus = "idle" | "loading" | "loaded" | "error";
 
@@ -80,6 +83,7 @@ export function SourcePreviewPanel({
   const [pdfNumPages, setPdfNumPages] = useState(0);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [xlsxSheets, setXlsxSheets] = useState<XlsxSheetPreview[]>([]);
+  const [xlsxPreviewNotice, setXlsxPreviewNotice] = useState<string | null>(null);
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -90,6 +94,7 @@ export function SourcePreviewPanel({
     const loadPreview = async () => {
       if (mode === "pdf" || mode === "image" || mode === "docx" || mode === "pptx" || mode === "embed") {
         setXlsxSheets([]);
+        setXlsxPreviewNotice(null);
         if (mode !== "embed") {
           setPreviewStatus(mode === "image" ? "loaded" : "idle");
         } else {
@@ -101,6 +106,7 @@ export function SourcePreviewPanel({
       setPreviewStatus("loading");
       setPreviewMessage(null);
       setXlsxSheets([]);
+      setXlsxPreviewNotice(null);
 
       try {
         const response = await fetch(previewUrl);
@@ -115,7 +121,10 @@ export function SourcePreviewPanel({
 
         if (mode === "xlsx") {
           const workbook = XLSX.read(arrayBuffer, { type: "array" });
-          const sheets = workbook.SheetNames.map((sheetName) => {
+          let previewWasTrimmed = workbook.SheetNames.length > MAX_XLSX_PREVIEW_SHEETS;
+          const sheets = workbook.SheetNames
+            .slice(0, MAX_XLSX_PREVIEW_SHEETS)
+            .map((sheetName) => {
             const sheet = workbook.Sheets[sheetName];
             const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(sheet, {
               header: 1,
@@ -125,21 +134,35 @@ export function SourcePreviewPanel({
             const normalizedRows = rows.map((row) =>
               row.map((cell) => (cell == null ? "" : String(cell))),
             );
-            const maxColumnCount = normalizedRows.reduce(
+            const maxColumnCount = Math.min(
+              normalizedRows.reduce(
               (max, row) => Math.max(max, row.length),
               0,
+              ),
+              MAX_XLSX_PREVIEW_COLUMNS,
             );
+            if (
+              normalizedRows.length > MAX_XLSX_PREVIEW_ROWS ||
+              normalizedRows.some((row) => row.length > MAX_XLSX_PREVIEW_COLUMNS)
+            ) {
+              previewWasTrimmed = true;
+            }
             return {
               name: sheetName,
               columns: Array.from({ length: maxColumnCount }, (_, index) =>
                 XLSX.utils.encode_col(index),
               ),
-              rows: normalizedRows.map((row) =>
+              rows: normalizedRows.slice(0, MAX_XLSX_PREVIEW_ROWS).map((row) =>
                 Array.from({ length: maxColumnCount }, (_, index) => row[index] ?? ""),
               ),
             };
           });
           setXlsxSheets(sheets);
+          if (previewWasTrimmed) {
+            setXlsxPreviewNotice(
+              `미리보기는 최대 ${MAX_XLSX_PREVIEW_SHEETS}개 시트, 시트당 ${MAX_XLSX_PREVIEW_ROWS}행, ${MAX_XLSX_PREVIEW_COLUMNS}열까지만 표시합니다.`,
+            );
+          }
         }
 
         if (!cancelled) {
@@ -512,7 +535,7 @@ export function SourcePreviewPanel({
               transformOrigin: "top center",
             }}
           >
-            <XlsxPreviewViewer sheets={xlsxSheets} />
+            <XlsxPreviewViewer sheets={xlsxSheets} previewNotice={xlsxPreviewNotice} />
           </div>
         ) : mode === "embed" ? (
           <>

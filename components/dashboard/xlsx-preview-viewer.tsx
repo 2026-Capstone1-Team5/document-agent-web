@@ -26,13 +26,17 @@ export type XlsxSheetPreview = {
 
 type XlsxPreviewViewerProps = {
   sheets: XlsxSheetPreview[];
+  previewNotice?: string | null;
 };
 
 type XlsxRow = {
   rowNumber: number;
 } & Record<string, string | number>;
 
-export function XlsxPreviewViewer({ sheets }: XlsxPreviewViewerProps) {
+export function XlsxPreviewViewer({
+  sheets,
+  previewNotice,
+}: XlsxPreviewViewerProps) {
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const activeSheet = sheets[activeSheetIndex] ?? sheets[0];
 
@@ -110,6 +114,11 @@ export function XlsxPreviewViewer({ sheets }: XlsxPreviewViewerProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#f6f6f6]">
+      {previewNotice ? (
+        <div className="border-b border-zinc-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-700">
+          {previewNotice}
+        </div>
+      ) : null}
       {sheets.length > 1 ? (
         <div className="border-b border-zinc-200 bg-white px-4 py-2.5">
           <div className="flex flex-wrap gap-2">
