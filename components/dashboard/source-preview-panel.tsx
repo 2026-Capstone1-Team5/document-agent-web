@@ -68,6 +68,7 @@ export function SourcePreviewPanel({
   downloadFileName,
 }: SourcePreviewPanelProps) {
   const isPdfPreview = mode === "pdf";
+  const isPptxPreview = mode === "pptx";
   const supportsZoom =
     mode === "pdf" || mode === "image" || mode === "embed" || mode === "xlsx";
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>(
@@ -253,11 +254,12 @@ export function SourcePreviewPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-y border-zinc-200 bg-white">
-      <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4">
-        <div className="flex items-center gap-2 overflow-hidden">
-          {toolbarStart}
-          <span className="max-w-[160px] truncate text-xs font-medium text-zinc-600">
-            {fileName}
+      {!isPptxPreview ? (
+          <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4">
+          <div className="flex items-center gap-2 overflow-hidden">
+            {toolbarStart}
+            <span className="max-w-[160px] truncate text-xs font-medium text-zinc-600">
+              {fileName}
           </span>
         </div>
 
@@ -372,6 +374,16 @@ export function SourcePreviewPanel({
           </div>
         </div>
       </div>
+        ) : isPptxPreview ? (
+          <div className="flex h-12 items-center gap-3 border-b border-zinc-200 bg-white px-4">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {toolbarStart}
+              <span className="max-w-[220px] truncate text-xs font-medium text-zinc-600">
+                {fileName}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
       <div
         ref={scrollContainerRef}
@@ -444,7 +456,7 @@ export function SourcePreviewPanel({
               }}
             />
           </div>
-        ) : mode === "docx" || mode === "pptx" ? (
+        ) : mode === "docx" ? (
           <div className="doc-viewer-embedded h-full bg-white">
             <DocViewer
               documents={[
@@ -474,6 +486,18 @@ export function SourcePreviewPanel({
               }}
               style={{ height: "100%" }}
             />
+          </div>
+        ) : mode === "pptx" ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-50 px-6 text-center">
+            <AlertCircle className="h-6 w-6 text-zinc-400" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-zinc-700">
+                Preview is not supported for this format yet.
+              </p>
+              <p className="text-xs text-zinc-500">
+                PPTX preview is not available in the current local viewer. You can still inspect the parsed result on the right.
+              </p>
+            </div>
           </div>
         ) : mode === "xlsx" && xlsxSheets.length ? (
           <div
