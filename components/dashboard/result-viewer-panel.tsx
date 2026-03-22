@@ -1,7 +1,8 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,100 @@ export function ResultViewerPanel({
 }: ResultViewerPanelProps) {
   const isReady = state === "ready";
   const [markdownMode, setMarkdownMode] = useState<MarkdownMode>("preview");
+  const markdownComponents = useMemo<Components>(
+    () => ({
+      h1: ({ children }) => (
+        <h1 className="mb-4 text-3xl font-semibold tracking-tight text-zinc-950">
+          {children}
+        </h1>
+      ),
+      h2: ({ children }) => (
+        <h2 className="mb-3 mt-8 text-2xl font-semibold tracking-tight text-zinc-900 first:mt-0">
+          {children}
+        </h2>
+      ),
+      h3: ({ children }) => (
+        <h3 className="mb-3 mt-6 text-lg font-semibold text-zinc-900 first:mt-0">
+          {children}
+        </h3>
+      ),
+      h4: ({ children }) => (
+        <h4 className="mb-2 mt-5 text-sm font-semibold uppercase tracking-[0.08em] text-zinc-500 first:mt-0">
+          {children}
+        </h4>
+      ),
+      p: ({ children }) => (
+        <p className="mb-4 text-[14px] leading-7 text-zinc-700 last:mb-0">{children}</p>
+      ),
+      ul: ({ children }) => (
+        <ul className="mb-4 list-disc space-y-2 pl-6 text-[14px] leading-7 text-zinc-700">
+          {children}
+        </ul>
+      ),
+      ol: ({ children }) => (
+        <ol className="mb-4 list-decimal space-y-2 pl-6 text-[14px] leading-7 text-zinc-700">
+          {children}
+        </ol>
+      ),
+      li: ({ children }) => <li className="pl-1">{children}</li>,
+      blockquote: ({ children }) => (
+        <blockquote className="mb-4 border-l-2 border-zinc-200 pl-4 italic text-zinc-600">
+          {children}
+        </blockquote>
+      ),
+      hr: () => <hr className="my-6 border-zinc-200" />,
+      a: ({ href, children }) => (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-zinc-900 underline underline-offset-4"
+        >
+          {children}
+        </a>
+      ),
+      code: ({ className, children }) => {
+        const isBlock = Boolean(className);
+        if (isBlock) {
+          return (
+            <code className="font-mono text-[12px] leading-6 text-zinc-100">
+              {children}
+            </code>
+          );
+        }
+        return (
+          <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[12px] text-zinc-800">
+            {children}
+          </code>
+        );
+      },
+      pre: ({ children }) => (
+        <pre className="mb-4 overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-950/95 p-4 font-mono text-[12px] leading-6 shadow-sm">
+          {children}
+        </pre>
+      ),
+      table: ({ children }) => (
+        <div className="mb-5 overflow-x-auto rounded-xl border border-zinc-200">
+          <table className="min-w-full border-collapse bg-white text-left text-[13px] text-zinc-700">
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }) => <thead className="bg-zinc-50">{children}</thead>,
+      th: ({ children }) => (
+        <th className="border-b border-r border-zinc-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.04em] text-zinc-500 last:border-r-0">
+          {children}
+        </th>
+      ),
+      td: ({ children }) => (
+        <td className="border-b border-r border-zinc-100 px-3 py-2 align-top text-[13px] last:border-r-0">
+          {children}
+        </td>
+      ),
+      strong: ({ children }) => <strong className="font-semibold text-zinc-900">{children}</strong>,
+    }),
+    [],
+  );
 
   const resultContent = (
     <>
@@ -164,8 +259,11 @@ export function ResultViewerPanel({
               {resultView === "markdown" ? (
                 isReady ? (
                   markdownMode === "preview" ? (
-                    <div className="prose prose-zinc max-w-none prose-headings:scroll-mt-20 prose-pre:overflow-x-auto prose-table:block prose-table:w-full prose-table:overflow-x-auto prose-th:text-left prose-td:align-top">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <div className="max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
                         {markdownContent}
                       </ReactMarkdown>
                     </div>
