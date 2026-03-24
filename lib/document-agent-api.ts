@@ -1,5 +1,8 @@
 import { buildApiUrl, requestJson, requestVoid } from "@/lib/api-client";
 
+export const DOCUMENT_AI_PARSER_ENABLED =
+  process.env.NEXT_PUBLIC_DOCUMENT_AI_PARSER_ENABLED === "true"
+
 export type ParserBackend = "markitdown" | "pdftotext" | "document_ai"
 export type PanelTab = "config" | "result"
 export type SourcePreviewMode = "pdf" | "image" | "docx" | "xlsx" | "pptx" | "embed"

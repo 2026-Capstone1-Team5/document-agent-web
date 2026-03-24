@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import {
+  DOCUMENT_AI_PARSER_ENABLED,
+} from "@/lib/document-agent-api"
+
+import {
   createAuthHeaders,
   createUnauthorizedResponse,
   fetchDocumentAgentApi,
@@ -10,7 +14,6 @@ import {
 } from "@/lib/document-agent-backend"
 
 const VALID_PARSER_BACKENDS = new Set(["markitdown", "pdftotext", "document_ai"])
-const DOCUMENT_AI_PARSER_ENABLED = process.env.DOCUMENT_AI_PARSER_ENABLED === "true"
 
 const ALLOWED_PARSER_BACKENDS = DOCUMENT_AI_PARSER_ENABLED
   ? VALID_PARSER_BACKENDS
