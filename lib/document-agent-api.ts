@@ -1,6 +1,6 @@
 import { buildApiUrl, requestJson, requestVoid } from "@/lib/api-client";
 
-export type ParserBackend = "markitdown" | "pdftotext"
+export type ParserBackend = "markitdown" | "pdftotext" | "document_ai"
 export type PanelTab = "config" | "result"
 export type SourcePreviewMode = "pdf" | "image" | "docx" | "xlsx" | "pptx" | "embed"
 
