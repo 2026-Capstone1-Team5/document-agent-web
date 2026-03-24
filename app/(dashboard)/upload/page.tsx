@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ResultViewerPanel } from "@/components/dashboard/result-viewer-panel";
 import {
   DEFAULT_PARSER_BACKEND,
+  DOCUMENT_AI_PARSER_ENABLED,
   DocumentSummary,
   getDocumentResult,
   getParseJob,
@@ -32,7 +33,6 @@ import {
 
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 60000;
-const SHOW_DOCUMENT_AI_PARSER = process.env.NEXT_PUBLIC_DOCUMENT_AI_PARSER_ENABLED === "true";
 
 const SourcePreviewPanel = dynamic(
   () => import("@/components/dashboard/source-preview-panel").then((module) => module.SourcePreviewPanel),
@@ -128,7 +128,7 @@ function UploadConfigPanel({
             </div>
           </button>
 
-          {SHOW_DOCUMENT_AI_PARSER ? (
+          {DOCUMENT_AI_PARSER_ENABLED ? (
             <button
               type="button"
               onClick={() => onParserBackendChange("document_ai")}
